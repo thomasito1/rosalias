@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FactBlast — Screenshot Fact-Checker</title>
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --panel: #141414;
+    --border: #2a2a2a;
+    --accent: #e8b86d;
+    --red: #e05252;
+    --green: #52c97f;
+    --yellow: #e8c252;
+    --blue: #5299e8;
+    --text: #e8e8e8;
+    --muted: #888;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    width: 100%;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header .logo {
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+  header .tagline {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .container {
+    width: 100%;
+    max-width: 860px;
+    padding: 32px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: var(--radius);
+    background: var(--panel);
+    padding: 48px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    position: relative;
+  }
+  .drop-zone.drag-over, .drop-zone:focus-within {
+    border-color: var(--accent);
+    background: #1a1700;
+  }
+  .drop-zone.has-image {
+    border-style: solid;
+    border-color: var(--accent);
+    padding: 12px;
+  }
+  .drop-zone .icon {
+    font-size: 3rem;
+    margin-bottom: 12px;
+    display: block;
+  }
+  .drop-zone h2 {
+    font-size: 1.15rem;
+    margin-bottom: 8px;
+  }
+  .drop-zone p {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .drop-zone kbd {
+    background: var(--border);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-family: monospace;
+    font-size: 0.9em;
+  }
+  #preview {
+    max-width: 100%;
+    max-height: 400px;
+    border-radius: 8px;
+    object-fit: contain;
+    display: none;
+  }
+  #preview.visible { display: block; margin: 0 auto; }
+  .preview-controls {
+    display: none;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 10px;
+  }
+  .preview-controls.visible { display: flex; }
+  button {
+    cursor: pointer;
+    border: none;
+    border-radius: 7px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 12px 28px;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    font-size: 1.05rem;
+    padding: 14px 36px;
+  }
+  .btn-secondary {
+    background: var(--border);
+    color: var(--text);
+  }
+  .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+  .analyze-row {
+    display: flex;
+    justify-content: center;
+  }
+  /* Results */
+  #results { display: none; flex-direction: column; gap: 20px; }
+  #results.visible { display: flex; }
+
+  .verdict-badge {
+    display: inline-block;
+    font-size: 1.2rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    padding: 6px 18px;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }
+  .verdict-FALSE    { background: #4a0a0a; color: var(--red); border: 1px solid var(--red); }
+  .verdict-TRUE     { background: #0a2e1a; color: var(--green); border: 1px solid var(--green); }
+  .verdict-MISLEADING { background: #2e1a0a; color: var(--yellow); border: 1px solid var(--yellow); }
+  .verdict-MISSING-CONTEXT { background: #0a1e3a; color: var(--blue); border: 1px solid var(--blue); }
+  .verdict-UNKNOWN  { background: var(--border); color: var(--muted); }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+  .card h3 {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+  .claim-text {
+    font-size: 1rem;
+    color: var(--text);
+    font-style: italic;
+    line-height: 1.6;
+    border-left: 3px solid var(--accent);
+    padding-left: 14px;
+  }
+  .response-body {
+    line-height: 1.7;
+    font-size: 0.97rem;
+  }
+  .response-body strong, .response-body b { color: var(--accent); }
+  .response-body em { color: var(--muted); }
+  .facts-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .facts-list li {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+  .facts-list li .num {
+    min-width: 26px;
+    height: 26px;
+    background: var(--accent);
+    color: #000;
+    font-weight: 900;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+  .sources-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .source-item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .source-item.reliable { border-left: 3px solid var(--green); }
+  .source-item.unreliable { border-left: 3px solid var(--red); }
+  .source-item .s-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  .source-item a { color: var(--accent); text-decoration: none; font-size: 0.82rem; }
+  .source-item a:hover { text-decoration: underline; }
+  .source-item .s-note {
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .source-item .s-point {
+    font-size: 0.88rem;
+    color: #bbb;
+    margin-top: 2px;
+  }
+  .reliability-chip {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .chip-ok { background: #0a2e1a; color: var(--green); }
+  .chip-bad { background: #4a0a0a; color: var(--red); }
+  .chip-unknown { background: var(--border); color: var(--muted); }
+
+  .zinger-box {
+    background: #1a1700;
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 18px 24px;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-align: center;
+    font-style: italic;
+  }
+  .zinger-box::before { content: '⚡ '; }
+
+  .copy-btn {
+    background: var(--border);
+    color: var(--text);
+    font-size: 0.82rem;
+    padding: 6px 14px;
+    float: right;
+    margin-top: -4px;
+  }
+  .copy-btn:hover { background: #3a3a3a; }
+
+  /* Loader */
+  .loader {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 40px;
+  }
+  .loader.visible { display: flex; }
+  .spinner {
+    width: 48px;
+    height: 48px;
+    border: 4px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loader-steps {
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+    line-height: 1.8;
+  }
+  .step { opacity: 0.3; transition: opacity 0.4s; }
+  .step.active { opacity: 1; color: var(--accent); }
+  .step.done { opacity: 0.6; }
+  .step.done::before { content: '✓ '; color: var(--green); }
+
+  .error-box {
+    background: #2a0a0a;
+    border: 1px solid var(--red);
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    color: var(--red);
+    display: none;
+  }
+  .error-box.visible { display: block; }
+
+  .paste-hint {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-top: -10px;
+  }
+
+  .sources-count {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-left: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">⚡ FactBlast</div>
+    <div class="tagline">Screenshot → Fact-check → Instant debunk — no excuses accepted</div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Drop Zone -->
+  <div class="drop-zone" id="dropZone">
+    <img id="preview" alt="Screenshot preview" />
+    <div id="dropContent">
+      <span class="icon">📸</span>
+      <h2>Paste or drop your screenshot here</h2>
+      <p>Press <kbd>Ctrl+V</kbd> / <kbd>Cmd+V</kbd> to paste — or drag & drop an image file</p>
+    </div>
+    <div class="preview-controls" id="previewControls">
+      <button class="btn-secondary" onclick="clearImage()">✕ Remove</button>
+    </div>
+  </div>
+  <p class="paste-hint">Works with screenshots from Twitter/X, Facebook, Instagram, TikTok, Reddit, anywhere</p>
+
+  <div class="analyze-row">
+    <button class="btn-primary" id="analyzeBtn" onclick="analyze()" disabled>
+      🔍 Fact-Check This
+    </button>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <!-- Loader -->
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <div class="loader-steps">
+      <div class="step" id="step1">👁 Reading the screenshot...</div>
+      <div class="step" id="step2">🔎 Searching 4-5 reliable sources...</div>
+      <div class="step" id="step3">⚖️ Verifying source credibility...</div>
+      <div class="step" id="step4">💥 Crafting the perfect debunk...</div>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="results">
+
+    <div class="card" id="claimCard">
+      <h3>Claim Detected</h3>
+      <div class="claim-text" id="claimText"></div>
+    </div>
+
+    <div class="card">
+      <h3>Verdict</h3>
+      <span class="verdict-badge" id="verdictBadge"></span>
+    </div>
+
+    <div class="card">
+      <h3>
+        FactBlast Response
+        <button class="copy-btn" onclick="copyResponse()">📋 Copy</button>
+      </h3>
+      <div class="response-body" id="responseBody"></div>
+    </div>
+
+    <div class="card">
+      <h3>Key Facts</h3>
+      <ul class="facts-list" id="factsList"></ul>
+    </div>
+
+    <div class="card">
+      <h3>Sources <span class="sources-count" id="sourcesCount"></span></h3>
+      <div class="sources-list" id="sourcesList"></div>
+    </div>
+
+    <div class="zinger-box" id="zingerBox"></div>
+
+    <div class="analyze-row">
+      <button class="btn-secondary" onclick="resetAll()">🔄 Check Another Screenshot</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let currentImageData = null;
+let currentImageType = 'image/png';
+
+// Paste handler
+document.addEventListener('paste', (e) => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      loadImageFile(file);
+      break;
+    }
+  }
+});
+
+// Drag and drop
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer?.files?.[0];
+  if (file && file.type.startsWith('image/')) loadImageFile(file);
+});
+dropZone.addEventListener('click', () => {
+  if (!currentImageData) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = e.target.files?.[0];
+      if (file) loadImageFile(file);
+    };
+    input.click();
+  }
+});
+
+function loadImageFile(file) {
+  currentImageType = file.type || 'image/png';
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    const base64 = dataUrl.split(',')[1];
+    currentImageData = base64;
+    showPreview(dataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+function showPreview(dataUrl) {
+  const preview = document.getElementById('preview');
+  const dropContent = document.getElementById('dropContent');
+  const previewControls = document.getElementById('previewControls');
+  preview.src = dataUrl;
+  preview.classList.add('visible');
+  dropContent.style.display = 'none';
+  previewControls.classList.add('visible');
+  dropZone.classList.add('has-image');
+  document.getElementById('analyzeBtn').disabled = false;
+  hideError();
+}
+
+function clearImage() {
+  currentImageData = null;
+  const preview = document.getElementById('preview');
+  preview.src = '';
+  preview.classList.remove('visible');
+  document.getElementById('dropContent').style.display = '';
+  document.getElementById('previewControls').classList.remove('visible');
+  dropZone.classList.remove('has-image');
+  document.getElementById('analyzeBtn').disabled = true;
+}
+
+function resetAll() {
+  clearImage();
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('loader').classList.remove('visible');
+  hideError();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function hideError() {
+  document.getElementById('errorBox').classList.remove('visible');
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '⚠️ ' + msg;
+  box.classList.add('visible');
+}
+
+function animateSteps() {
+  const steps = ['step1','step2','step3','step4'];
+  const delays = [0, 1800, 3800, 6000];
+  steps.forEach((id, i) => {
+    setTimeout(() => {
+      steps.forEach((sid, si) => {
+        const el = document.getElementById(sid);
+        if (si < i) { el.classList.remove('active'); el.classList.add('done'); }
+        else if (si === i) { el.classList.add('active'); el.classList.remove('done'); }
+        else { el.classList.remove('active','done'); }
+      });
+    }, delays[i]);
+  });
+}
+
+async function analyze() {
+  if (!currentImageData) return;
+  document.getElementById('results').classList.remove('visible');
+  document.getElementById('loader').classList.add('visible');
+  document.getElementById('analyzeBtn').disabled = true;
+  hideError();
+
+  // Reset step states
+  ['step1','step2','step3','step4'].forEach(id => {
+    document.getElementById(id).classList.remove('active','done');
+  });
+  animateSteps();
+
+  try {
+    const resp = await fetch('/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        image_data: currentImageData,
+        image_type: currentImageType,
+      }),
+    });
+
+    const data = await resp.json();
+    if (!resp.ok) {
+      throw new Error(data.detail || 'Analysis failed');
+    }
+    renderResults(data);
+  } catch (err) {
+    showError(err.message || 'Something went wrong. Check your API keys.');
+  } finally {
+    document.getElementById('loader').classList.remove('visible');
+    document.getElementById('analyzeBtn').disabled = false;
+  }
+}
+
+function renderResults(data) {
+  // Claim
+  document.getElementById('claimText').textContent = data.extracted_claim || '(no claim extracted)';
+
+  // Verdict
+  const badge = document.getElementById('verdictBadge');
+  const verdict = (data.verdict || 'UNKNOWN').toUpperCase().replace(/\s+/g, '-');
+  badge.textContent = data.verdict || 'UNKNOWN';
+  badge.className = 'verdict-badge verdict-' + verdict;
+
+  // Response
+  document.getElementById('responseBody').innerHTML = markdownToHtml(data.snappy_response || '');
+
+  // Facts
+  const factsList = document.getElementById('factsList');
+  factsList.innerHTML = '';
+  (data.facts || []).forEach((fact, i) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<span class="num">${i+1}</span><span>${escHtml(fact)}</span>`;
+    factsList.appendChild(li);
+  });
+
+  // Sources
+  const sourcesList = document.getElementById('sourcesList');
+  sourcesList.innerHTML = '';
+  const sources = data.sources || [];
+  document.getElementById('sourcesCount').textContent =
+    sources.length ? `(${sources.length} verified)` :
+    data.all_sources_found ? `(${data.all_sources_found} found — add BRAVE_API_KEY for details)` : '';
+
+  if (sources.length === 0) {
+    sourcesList.innerHTML = '<p style="color:var(--muted);font-size:0.9rem">Add a BRAVE_API_KEY environment variable to enable live web search and source verification.</p>';
+  } else {
+    sources.forEach(s => {
+      const div = document.createElement('div');
+      div.className = 'source-item ' + (s.reliable ? 'reliable' : 'unreliable');
+      const chipClass = s.reliable ? 'chip-ok' : 'chip-bad';
+      const chipLabel = s.reliable ? '✓ Reliable' : '✗ Unreliable';
+      div.innerHTML = `
+        <div class="s-title">${escHtml(s.title || s.url)}</div>
+        <a href="${escHtml(s.url)}" target="_blank" rel="noopener">${escHtml(s.url)}</a>
+        <div class="s-note">
+          <span class="reliability-chip ${chipClass}">${chipLabel}</span>
+          ${s.reliability_note ? ' — ' + escHtml(s.reliability_note) : ''}
+        </div>
+        ${s.key_point ? `<div class="s-point">${escHtml(s.key_point)}</div>` : ''}
+      `;
+      sourcesList.appendChild(div);
+    });
+  }
+
+  // Zinger
+  document.getElementById('zingerBox').textContent = data.closing_zinger || '';
+
+  document.getElementById('results').classList.add('visible');
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyResponse() {
+  const claim = document.getElementById('claimText').textContent;
+  const verdict = document.getElementById('verdictBadge').textContent;
+  const response = document.getElementById('responseBody').innerText;
+  const zinger = document.getElementById('zingerBox').textContent;
+  const text = `VERDICT: ${verdict}\n\nCLAIM: ${claim}\n\n${response}\n\n⚡ ${zinger}`;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = '✓ Copied!';
+    setTimeout(() => { btn.textContent = '📋 Copy'; }, 2000);
+  });
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function markdownToHtml(md) {
+  return md
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/^### (.+)$/gm,'<h4 style="margin:14px 0 6px;color:var(--accent)">$1</h4>')
+    .replace(/^## (.+)$/gm,'<h3 style="margin:14px 0 6px;color:var(--accent)">$1</h3>')
+    .replace(/^# (.+)$/gm,'<h2 style="margin:14px 0 6px;color:var(--accent)">$1</h2>')
+    .replace(/^[-*] (.+)$/gm,'<li style="margin:4px 0 4px 18px">$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm,'<li style="margin:4px 0 4px 18px">$2</li>')
+    .replace(/\n{2,}/g,'</p><p style="margin-top:10px">')
+    .replace(/\n/g,'<br>');
+}
+</script>
+</body>
+</html>
