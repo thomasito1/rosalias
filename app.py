@@ -1,15 +1,22 @@
 import os
-import base64
 import json
 import re
 import httpx
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import anthropic
 
 app = FastAPI(title="FactBlast Bot")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 BRAVE_API_KEY = os.environ.get("BRAVE_API_KEY", "")
@@ -233,10 +240,18 @@ async def health():
     return {"status": "ok", "search_enabled": bool(BRAVE_API_KEY)}
 
 
-@app.get("/", response_class=HTMLResponse)
+REACT_BUILD = "static/react"
+LEGACY_BUILD = "static"
+
+def _build_dir():
+    if os.path.isdir(REACT_BUILD) and os.path.isfile(f"{REACT_BUILD}/index.html"):
+        return REACT_BUILD
+    return LEGACY_BUILD
+
+@app.get("/", response_class=FileResponse)
 async def index():
-    with open("static/index.html") as f:
-        return f.read()
+    return FileResponse(f"{_build_dir()}/index.html")
 
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+# Serve React build (assets, etc.) — must come LAST
+app.mount("/", StaticFiles(directory=_build_dir(), html=True), name="spa")

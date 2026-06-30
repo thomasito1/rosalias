@@ -1,0 +1,55 @@
+:root {
+  --bg: #0d0d0d;
+  --panel: #141414;
+  --panel2: #1a1a1a;
+  --border: #252525;
+  --accent: #e8b86d;
+  --red: #e05252;
+  --green: #52c97f;
+  --yellow: #e8c252;
+  --blue: #5299e8;
+  --text: #efefef;
+  --muted: #777;
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+input, textarea { font-family: inherit; }
+
+@keyframes spin    { to { transform: rotate(360deg); } }
+@keyframes fadeUp  { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+@keyframes shimmer { 0%,100% { opacity:.4; } 50% { opacity:1; } }
